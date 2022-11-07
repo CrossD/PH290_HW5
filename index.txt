@@ -1,1 +1,1 @@
-`compModel_xdai.R` includes a rudimentary implementation for comparing two linear regression models. Created by Xiongtao and edited by Noel
+`compModel_xdai.R` includes a rudimentary implementation for comparing two linear regression models. Created by Xiongtao and edited by Eason on Nov 6th, 2022.
