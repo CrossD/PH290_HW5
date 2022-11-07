@@ -1,0 +1,40 @@
+---
+title: "Utility Function Code and Example"
+author: "Jessica Pak"
+date: "2022-09-20"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This utility function, `compare_mod()` is simple and only takes in one argument, a list of predefined linear regression models. There is no minimum or maximum number of models that can be passed into the function. However, if two or more linear regression models are being compared, the `mods` argument requires that the models be put into a list, using the function `list()`. The output of the function is a list of coefficients from the linear regression model(s) as well as 4 summary plots including the residual (and standardized residuals) vs fitted values, Q-Q plot, and Cook's distance plot. This function requires the `purrr` library for the `map` function embedded within the source code of function. See below for code and example.
+
+```{r utility function source code}
+library(purrr)
+
+# required input: mods argument takes single or list of predefined linear regression models (see next code chunk)
+compare_mod <- function(mods) {
+  # numerical based comparison
+  coeff = map(mods, function(m) coefficients(m))
+  # graphical based comparison
+  graphs = map(mods, function(m) {
+    par(mfrow=c(2,2))
+    plot(m)
+    })
+  return(c(coeff, graphs))
+}
+
+```
+
+```{r example of utility function}
+# example: predefined linear regression models
+mod1 <- lm(lifeExp ~ year, gapminder::gapminder)
+mod2 <- lm(lifeExp ~ year + gdpPercap, gapminder::gapminder)
+
+mods <- list(mod1, mod2)
+
+# example
+compare_mod(mods = mods)
+```

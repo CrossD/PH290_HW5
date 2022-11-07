@@ -1,1 +1,3 @@
 `compModel_xdai.R` includes a rudimentary implementation for comparing two linear regression models. Created by Xiongtao and edited by Eason on Nov 6th, 2022.
+
+`hw2_code_review.Rmd` includes utility function and example of compare_mod() function that was created for homework assignment 2. Created by Jessica.
