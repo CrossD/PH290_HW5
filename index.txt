@@ -3,3 +3,5 @@
 `hw2_code_review.Rmd` includes utility function and example of compare_mod() function that was created for homework assignment 2. Created by Jessica.
 
 `HW001_4_Noel.R` contains question 4 from homework001. This file was meant to be reviewed by another peer. Created by Noel.
+
+`hw1_nolan.Rmd` contains Nolan's work from homework 1 in this class. Created by Nolan. 

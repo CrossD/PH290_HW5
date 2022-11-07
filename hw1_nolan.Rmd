@@ -1,0 +1,162 @@
+---
+title: "Homework 1 PH 290"
+author: "Nolan Gunter"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+---
+```{r}
+library(assertthat)
+library(ggplot2)
+library(testthat)
+library(tidyverse)
+library(ggpubr)
+```
+
+# 1. Write down two differences between the type and the class of an R object
+
+An R object's `type` denotes its internal storage mode, while we can view `class` as more of an external form of an object that demonstrates how functions should interpret it. For example, consider the following:
+
+```{r}
+x <- 4.56
+y <- 4L
+typeof(x); typeof(y)
+class(x); class(y)
+```
+
+There is a nuance between the two components of objects x and y. Type denotes a more specific case of x, making it specified as a double instead of strictly as a numeric to the R S3 method dispatch. However, type and class are technically the same for our integer y. 
+
+# 2. Create a function `fp` to calculate the $p^{th}$ absolute power of a vector of numbers. 
+
+The following function `fp` calculates the absolute power of a numeric value, or a vector of numerics by default. The inputs include the numeric(s) value(s), the power p which must be greater than or equal to 1. If the user sets `deriv = TRUE`, then the derivative will be calculated instead. 
+
+```{r}
+fp <- function(x,p = 2,deriv = FALSE){
+  
+  #p must be greater than or equal to 1, simultaneously checks it is numeric
+  stopifnot(p >= 1)
+  
+  stopifnot(is.numeric(x))
+  
+  if(deriv){
+    if(p == 1) sign(x)
+    else p*(abs(x)^(p-1))*sign(x)
+  }
+  else{
+    abs(x)^p
+  }
+}
+
+test_that("fp works", {
+  a <- c(1,2,3)
+  b <- c(-1,2,-3)
+  c <- as.numeric(c())
+  
+  expect_equal(fp(a, p=2), c(1,4,9))
+  expect_equal(fp(a, p=4), c(1,16,81))
+  expect_equal(fp(b, p=1), c(1,2,3))
+  expect_equal(fp(b, p=2, deriv=TRUE), c(-2,4,-6))
+  expect_equal(fp(b, p=1, deriv=TRUE), c(-1,1,-1))
+  expect_equal(fp(c), numeric(0))
+})
+```
+
+\newpage
+# 3. Subgroup analyses on diabetes data
+
+```{r}
+diabetes <- read.csv(file = "~/Desktop/diabetic_data.csv") %>% 
+  select(race, gender, A1Cresult, time_in_hospital) %>%
+  filter(gender != "Unknown/Invalid")
+  
+##created nested data based on gender and race
+nest_diabetes <- diabetes %>% group_by(gender, race) %>% tidyr::nest()
+
+final_data <- nest_diabetes %>%
+              mutate(ct = map(data, function(dat) with(dat,table(A1Cresult, 
+                       time_in_hospital, useNA = "ifany"))),
+                     tt = map(data, function(dat) t.test(
+                       dat %>% filter(A1Cresult %in% c("Norm")) %>% pull(time_in_hospital),
+                       dat %>% filter(A1Cresult %in% c(">7", ">8")) %>% pull(time_in_hospital)
+                     )),
+                     pval = map_dbl(tt, function(t) t$p.value)
+                  )
+
+final_data[1:5,c("race","gender","pval")]
+```
+
+\newpage
+# 4. Design and write a utility function to compare linear regression models side-by-side. 
+
+The following function `compareLM` is designed to facilitate quick comparison of linear models. The user must input the dataset, the outcome/response variable (that will be the same across models), and a list of character vectors representing the variables (with names as they appear in the data) requesting to be used in the data. 
+
+The function relies on a sub-function called `getLM`, which creates a linear model from the data.
+
+```{r}
+getLM <- function(outcome, vars, dat){
+  lin <- lm(data = dat, 
+            formula = paste(outcome, "~", 
+                      paste(vars, collapse = " + ")))
+}
+
+compareLM <- function(data, outcome, var_list){
+  
+  #ensure outcome variable defined in dataset
+  assert_that(any(outcome == colnames(data)))
+  
+  #create new data with outcome observed values
+  new_dat <- data[,outcome]
+  
+  assert_that(length(var_list) >= 1)
+  num_mods <- length(var_list)
+  
+  #create list for summary objects
+  lm_summaries <- list()
+  
+  #for loop for linear model, prediction and summary info
+  for(i in 1:num_mods){
+    lm_tmp <- getLM(outcome, var_list[[i]], data)
+    new_dat <- cbind(new_dat,predict(lm_tmp, newdata = gap))
+    lm_summaries[[i]] <- summary(lm_tmp)
+  }
+  
+  colnames(new_dat) <- c("Observed", paste0("Predict", 1:num_mods))
+  
+  #create plots to merge for each individual model
+  for(i in 1:num_mods){
+    plot <- ggplot(new_dat, aes_string(x = "Observed", y = paste("Predict", i, sep = ""))) +
+      geom_point() + geom_smooth(method = "lm") 
+    assign(paste0("plot", i), plot)
+  }
+  
+  #merge plots using ggarrange function in ggpubr
+  p <- paste(paste0("plot",1:num_mods), collapse = ",")
+  ret_plot <- eval(parse(text=paste("ggarrange(", p, ")", sep = "")))
+  
+  return(list(new_dat, ret_plot, lm_summaries))
+}
+```
+
+Now we test the code on the gapminder dataset. 
+
+```{r}
+gap <- gapminder::gapminder
+outcome <- "lifeExp"
+var_list <- list(c("year"), 
+                 c("year", "gdpPercap"), 
+                 c("year", "gdpPercap", "pop"), 
+                 c("year", "gdpPercap", "pop", "continent"))
+
+new <- compareLM(data = gap, outcome, var_list)
+head(new[[1]])
+new[[2]]
+new[[3]]
+```
+
+Outside sources: 
+
+https://stackoverflow.com/questions/17024685/how-to-use-reference-variables-by-character-string-in-a-formula
+
+https://cran.r-project.org/web/packages/jtools/vignettes/summ.html
+
+https://stackoverflow.com/questions/15272916/how-to-wait-for-a-keypress-in-r
+
