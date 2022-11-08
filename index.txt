@@ -5,3 +5,5 @@
 `HW001_4_Noel.R` contains question 4 from homework001. This file was meant to be reviewed by another peer. Created by Noel.
 
 `hw1_nolan.Rmd` contains Nolan's work from homework 1 in this class. Created by Nolan. 
+
+`HW1_Yichieh.Rmd` contains Yichieh's answer for question 4 from homework1. Created by Yichieh.

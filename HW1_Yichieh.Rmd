@@ -1,0 +1,186 @@
+---
+title: "HW1"
+author: "Yichieh Tsai"
+output: 
+  pdf_document: 
+    fig_width: 2
+    fig_height: 2
+date: "2022-09-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(purrr)
+library(testthat)
+library(dplyr)
+library(tidyr)
+library(vcdExtra)
+library(broom)
+library(ggplot2)
+```
+
+**1. Write down two differences between the type and the class of an R object.**
+According to the R documentation for typeof and class, the assertion about "main difference" is incorrect. Class is an attribute of an object that can be assigned regardless of its internal storage mode, while "typeof determines the (R internal) type or storage mode of any object." One describes a logical characteristic while the other is a physical characteristic of an object.There are only a few R data types. 
+
+**2**
+```{r}
+sign <- function(x){
+  if(x>0){
+    return(1)
+  }
+  if(x==0){
+    return(0)
+  }
+  else{
+    return(-1)
+  }
+}
+
+fp <- function(x, p=2, deriv=FALSE){
+  for(i in seq_along(x)){
+    if(deriv == FALSE){
+      if(x[i]>=0){
+        x[i] <- (x[i]^p)
+      }
+      else{
+        x[i] <- (sqrt(x[i]^2)^p)
+      }}
+    
+    if(deriv == TRUE){
+      if(p>1){
+        x[i] <- (p * abs(x[i])^(p-1) * sign(x[i]))
+      }
+      if(p==1){
+        x[i] <- (sign(x[i]))
+      }
+    }
+  }
+  return(x)
+}
+
+testthat::test_that
+test_data_1 <- c(-5:5)
+test_data_2 <- c()
+test_that("fp works", {
+  expect_equal(fp(x = test_data_1, p=4), test_data_1^4)
+  expect_equal(fp(x = test_data_1 , p=1), abs(test_data_1))
+  expect_equal(fp(x = test_data_1, p=2, deriv = TRUE), 2 * test_data_1)
+  expect_equal(fp(x = test_data_1, p=1, deriv = TRUE), map_dbl(test_data_1, sign))
+  expect_equal(fp(x = c()), test_data_2)
+})
+```
+\newpage
+
+**3. You will perform a subgroup analyses using a diabetes dataset available here. The Data Folder includes a download link. We will focus on the race, gender, A1Cresult (>7 and >8 are abnormal), and time_in_hospital (unit is days). We define a subgroup as a combination of race and gender. For each subgroup,**
+**create a cross-tabulation of A1Cresult by time_in_hospital,**
+**conduct a t-test on whether the time in hospital differs among patients with normal and abnormal A1C result.**
+```{r}
+diabetic_data <- read.csv(file = "diabetic_data.csv")
+
+smaller_diabetic_data <-diabetic_data %>% select(race, gender, A1Cresult, time_in_hospital)
+
+#smaller_diabetic_data %>% arrange(race, gender)
+
+sdd_no_A1C <- smaller_diabetic_data %>%
+  filter(A1Cresult != "None")
+
+#frequency table 1
+result_by_gr <- sdd_no_A1C %>%
+  group_by(race, gender) %>% 
+  arrange(race, gender)%>%
+  summarize(outcome_table = list(table(A1Cresult, time_in_hospital)))
+
+result <- function(x){
+  print(result_by_gr$race[x])
+  print(result_by_gr$gender[x])
+  print(result_by_gr$outcome_table[x])
+}
+result(3)
+result(4)
+
+```
+\newpage
+
+```{r}
+# t test
+dat2 <- sdd_no_A1C %>%
+  mutate(newA1C = gsub(">7","Abnormal",
+                  gsub(">8", "Abnormal", sdd_no_A1C$A1Cresult))) %>%
+  select( !A1Cresult)%>%
+  group_by(gender, race) %>% 
+  arrange(race, gender)%>%
+  nest() 
+dat3 <- dat2 %>%
+  mutate(
+    xtab = map(data, function(a)xtabs(~ time_in_hospital + newA1C, a)),
+    split_1= map(data, function(b)pivot_wider(b, names_from = newA1C, values_from = time_in_hospital, values_fn = list)))
+   
+f_ttest <- function(z){
+  w <- as.data.frame(dat2$data[z])
+  w1 <- pivot_wider(w, names_from = newA1C, values_from = time_in_hospital, values_fn = list)
+  w1 <- w1 %>% unnest(cols = Abnormal) %>% unnest(cols = Norm)
+  ttest <- t.test(w1$Abnormal, w1$Norm, alternative = "two.sided")
+  print(dat2$race[z])
+  print(dat2$gender[z])
+  print(ttest)
+}
+f_ttest(3)
+f_ttest(6)
+```
+
+\newpage
+_Q4. Compare two lm_  
+function: test_lm(lm1, lm2)  
+1.  Input: two vectors contain results of lm()  
+2.  Output:  
+    + Graph comparison: linear regression line of two regression model  
+    + Numerical/text-based comparison: intercept, slope, standard error, statistic, p-value   
+
+```{r}
+mod1 <- lm(lifeExp ~ year, gapminder::gapminder)
+mod2 <- lm(lifeExp ~ year + gdpPercap, gapminder::gapminder)
+
+test_lm <- function(lm1, lm2) {
+  #lm1plot
+  for(i in 2:dim(lm1$model)[2]){
+    
+      lm1_X <- noquote(unlist(attributes(lm1$model[i])[1]))
+      lm1_y <- noquote(unlist(attributes(lm1$model[1])[1]))
+    
+      AAA <- ggplot(lm1$model, aes_string(x = lm1_X,y = lm1_y)) + 
+      geom_point()+
+      geom_smooth(method=lm,se=FALSE,fullrange=TRUE)+
+      labs(title = "lm1")
+   print(AAA)
+  }
+  
+  #lm2 plot
+  for(i in 2:dim(lm2$model)[2]){
+    
+      lm1_X <- noquote(unlist(attributes(lm2$model[i])[1]))
+      lm1_y <- noquote(unlist(attributes(lm2$model[1])[1]))
+    
+      BBB <- ggplot(lm2$model, aes_string(x = lm1_X,y = lm1_y)) + 
+      geom_point()+
+      geom_smooth(method=lm,se=FALSE,fullrange=TRUE)+
+      labs(title = "lm2")
+   print(BBB)
+  }
+
+  # numerical/text-based comparison
+  tidy_lm1 <- as.data.frame(tidy(lm1))
+  tidy_lm2 <- as.data.frame(tidy(lm2))
+  tidy_lm12 <- bind_rows(tidy_lm1, tidy_lm2, .id = "lm")
+  
+  print(tidy_lm12)
+}
+```
+
+\newpage
+```{r}
+test_lm(mod1, mod2)
+
+```
+
+
+
