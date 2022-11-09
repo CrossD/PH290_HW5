@@ -1,0 +1,35 @@
+---
+title: "HW3"
+author: "Sean"
+date: "10/09/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## HW 3
+```{r}
+devtools::install("ModelList")
+
+library(dplyr)
+dataOld <- gapminder::gapminder %>% filter(year <= 2000)
+mod1 <- lm(lifeExp ~ year + pop + gdpPercap, dataOld)
+mod2 <- rpart::rpart(lifeExp ~ year + pop + gdpPercap, dataOld)
+mod3 <- glmnetUtils::cv.glmnet(lifeExp ~ year + pop + gdpPercap, dataOld)
+
+library(ModelList)
+mList <- CreateModelList(mod1, mod2, mod3)
+summary(mList) # compact summaries for the models in mList
+dataNew <- gapminder::gapminder %>% filter(year > 2000)
+# get all the predicted values. allPred should be a matrix of 3 columns
+allPred <- predict(mList, newdata=dataNew)
+# a vector of length 3 containing the mean squared errors
+MSE <- colMeans((dataNew$lifeExp - allPred)^2)
+MSE
+```
+
+The result suggests that the regression tree `rpart` provides the best prediction accuracy, measured by MSE. The tree built by those 3 variables `year`, `pop`, `gdpPercap` has 13 nodes in the end.
+
+The model summary here is a bit lengthy. Due to the default `summary()` method for `rpart`, it demonstrates too many details.

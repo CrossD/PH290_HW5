@@ -7,3 +7,5 @@
 `hw1_nolan.Rmd` contains Nolan's work from homework 1 in this class. Created by Nolan. 
 
 `HW1_Yichieh.Rmd` contains Yichieh's answer for question 4 from homework1. Created by Yichieh.
+
+`Sean'sHW3.Rmd` contains Sean's assignment for HW3. Created by Sean.
