@@ -1,0 +1,98 @@
+---
+title: "PBHL 290 HW2"
+author: "Angela Cheng"
+date: "2022-09-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Lexical/Static scoping rules: 
+a) First x was set as 10 in the global environment. Then the function f1 created uses x. The line after sets g with the f1 function where x was defined as 1 in the function. Because x was redefined, the output uses 1 as x to compute the function. The output is expected to equal 11. 
+```{r}
+x <- 10
+f1 <- function(x) {
+  function() {
+    x + 10
+  }
+}
+g <- f1(1)
+g()
+```
+
+
+b) First y was set to 2 in the global environment. Then the i1 function defines a local variable z as 3. The function uses the y from the global environment and a local z variable. Then the next line resets the y in the global environment to 3. So when the next line calls on the function, the scoping rule takes the most updated global variable and feeds it into the function. The output prints out 3 3. 
+
+```{r}
+y <- 2
+i1<- function() {
+  z <- 3
+  c(y, z)
+}
+y <- 3
+i1()
+```
+
+c) The first line sets f to the function f(x) to print "ha". Then the next line sets g to the function f(y) to print hello. The following line makes y equal to f(), which calls on the f function without inputing an x value; so it outputs "ha". The next line of g(y) calls on the function set to g, which is f(y), where y was now set to the output "ha". However, since the function in g does not use the variable y, it outputs "hello" nonetheless. Thus, the final outputs includes both "ha" and "hello". 
+```{r}
+f <- function(x) print("ha")
+g <- function(y) print("hello")
+y = f()
+g(y)
+```
+
+
+d) The first two line defines the function in the exact manner in 1c. In the next line of g(y = f()), R resolves from the inside out. It first equates y = f() which equals "ha", this is then fed into the g function where y is now "ha". However, since the function does not use the variable y, it prints "hello" nonetheless. 
+
+```{r}
+f <- function(x) print("ha")
+g <- function(y) print("hello")
+g(y = f())
+```
+
+
+2. Numerically calculate the definite integral of an arbitrary polynomial:    
+```{r}
+library(testthat)
+
+#2a - function factory
+ff<- function(a){
+  function(x){
+    equation<-0 #initialize to zero
+    for (i in 1:length(a)){
+      value<-a[i] * x ^ (i-1)
+      equation<-equation + value
+    }
+      return(equation)
+  }
+}
+
+#2b - test
+
+test_that("My Function Works", {
+  #test i: set a0 = 1, a1 = -2
+  test_a<-ff(c(1,-2) )
+  expect_equal(test_a(3), 1-2*3 ) #check whether ff works properly
+  
+  #test i
+  expect_true(is.function(ff(a))) #check if ff output is a function
+  
+  #test ii: a0 = 2, vector x
+  testii<-ff(2) 
+  #since a0 is 2, it always outputs 2 for the length of vector x
+  expect_equal(testii(c(2,3,4)), c(2,2,2))
+  
+  #test iii: a0=1, a1 = -1
+  testiii<-ff(c(1,-1))
+  expect_equal(testiii(5), 1-5)
+} )
+
+#2c
+a<-c(1,0, -1)
+integrate(ff(a), 0, 10)
+
+
+```
+
