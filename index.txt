@@ -9,3 +9,5 @@
 `HW1_Yichieh.Rmd` contains Yichieh's answer for question 4 from homework1. Created by Yichieh.
 
 `Sean'sHW3.Rmd` contains Sean's assignment for HW3. Created by Sean.
+
+'hw5-dc.txt' is an empty text document. Created by David
