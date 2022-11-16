@@ -11,3 +11,5 @@
 `Sean'sHW3.Rmd` contains Sean's assignment for HW3. Created by Sean.
 
 'hw5-dc.txt' is an empty text document. Created by David
+
+'grad_student_compliment.R' compliments graduate students! Created by Lauren
