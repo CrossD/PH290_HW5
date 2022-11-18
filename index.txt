@@ -15,3 +15,5 @@
 'grad_student_compliment.R' compliments graduate students! Created by Lauren
 
 'hello_world.R' says a personalized hello. Created by Kaitlyn.
+
+`HW1_Maddy.Rmd` contains Maddy's work from homework 1 in this class. Created by Maddy. 

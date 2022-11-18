@@ -1,0 +1,362 @@
+---
+output: rmdformats::html_clean
+title: "Biostatistical Computing: Homework 1"
+author: Madeline Adee
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+
+Initial setup and package loading. 
+
+```{r setup, include=TRUE}
+
+knitr::opts_chunk$set(echo = TRUE)
+# use pacman package to load packages (easier when switching between computers)
+pacman::p_load(testthat, # testing package
+               dplyr, # data cleaning, pipes, etc.
+               purrr, # functional programming
+               tidyr,
+               kableExtra, # nice HTML tables for results
+               expss, # apply nice labels to data
+               medicaldata, # sample dataset
+               ggplot2, # plotting
+               ggfortify, # allow plotting of lm objects with ggplot
+               gridExtra, # to add title to ggfortify plot
+               broom, 
+               gtsummary
+)
+
+```
+
+# Problem 1
+
+Two differences between the type and the class of an R object are: 
+
+- The type of an object refers to the internal storage mode (can be accessed using `typeof()`) and class of an object determines how other functions interpret the object (can be accessed using `class()`). 
+- Class is an attribute of the object. R objects are supplemented with attributes, one of which is class. 
+
+
+# Problem 2
+
+First, I wrote the function as detailed in the assignment description. 
+
+```{r}
+
+fp <- function(x, p, deriv = FALSE){
+  
+  # check that inputs are correct format
+  stopifnot(is.numeric(x))
+  stopifnot(is.numeric(p))
+  stopifnot(is.logical(deriv))
+  
+  if(deriv == FALSE){
+  val <- abs(x)^p
+  }
+  
+  if(deriv == TRUE){
+  val <- p*abs(x)^(p-1)*sign(x)
+  }
+  
+  return(val)
+  
+}
+
+```
+
+Then I wrote the tests for the function using testthat::expect_equal, and grouedp the tests together using testthat::test_that. 
+
+```{r}
+
+test_that("fp works", {
+  
+  x <- c(1, 2)
+  x_empty <- numeric(length=0)
+  expect_equal(length(fp(x, 2)), length(x))
+  expect_equal(fp(x, 4), x^4)
+  expect_equal(fp(x, 1), abs(x))
+  expect_equal(fp(x, 2, deriv = TRUE), 2*x)
+  expect_equal(fp(x, 1, deriv = TRUE), sign(x))
+  # what is the point of this one?
+  expect_equal(fp(x_empty, 1), x_empty)
+  
+})
+
+```
+
+# Problem 3
+
+First I loaded and cleaned the data in order to complete the rest of the problem.
+
+```{r}
+
+data <- read.csv("./dataset_diabetes/diabetic_data.csv")
+
+data_select <- data %>%
+  # choosing only variables I need for this assignment
+  select(race, gender, A1Cresult, time_in_hospital) %>%
+  # remove if no A1Cresults since we are comparing two types of A1Cresults results
+  filter(A1Cresult != "None") %>%
+  # convert ? to "unknown" for nicer looking tables etc.
+  mutate(race = ifelse(race == "?", "Unknown", race)) %>%
+  # create groupings as specified in assignment
+  mutate(A1Cresult = ifelse(A1Cresult == ">7" | A1Cresult == ">8", "Abnormal", A1Cresult), 
+         # cleaning up the formatting so this looks nicer
+         race = ifelse(race == "AfricanAmerican", "African American", race))
+
+```
+
+Then I wrote the functions needed to run the t-test and crosstabs, and be able to present the results nicely in tables.  
+
+```{r}
+
+# function to run t-test to compare time in hospital for normal vs. abnormal
+f_ttest <- function(data) {
+  norm <- data %>% filter(A1Cresult == "Norm")
+  abnorm <- data %>% filter(A1Cresult == "Abnormal")
+  t.test(x = norm$time_in_hospital, y = abnorm$time_in_hospital)
+}
+
+# function to run crosstabs and write HTML for table
+f_crosstabs <- function(data, label){
+ tbl_cross(data, row=time_in_hospital, col=A1Cresult, percent="column", 
+           label = list(time_in_hospital ~ "Time in hospital", A1Cresult ~ "A1C Result")) %>%
+    modify_header(label = label)
+}
+
+# function to save t-test results nicely to make it easier to add table later
+f_results <- function(data){
+
+  mean_norm <- data[['estimate']][[1]]
+  mean_abnorm <- data[['estimate']][[2]]
+  stat <- data[['statistic']][[1]]
+  pval <- data[['p.value']] 
+
+  temp_df <- c(
+             mean_norm = mean_norm, 
+             mean_abnorm = mean_abnorm, 
+             stat = stat, 
+             pval = pval)
+  
+  return(temp_df)
+}
+
+```
+
+Nest and then use map to generate the t-tests and cross-tabs. 
+
+```{r}
+
+data_grouped <- data_select %>%
+  group_by(race, gender) %>%
+  tidyr::nest() 
+
+data_summary <- data_grouped %>%
+  mutate(t_res = map(data, f_ttest), 
+         obs = map(data, function(x) nrow(x)),
+         summary_stats = map(t_res, f_results), 
+         crosstabs = map(data, ~f_crosstabs(.x, label = paste(race, gender)))) %>%
+  tidyr::unnest_wider(summary_stats)
+
+```
+
+Arrange output data for clarity and print out results of crosstabs and t-tests.
+
+```{r, results = "asis"}
+
+# change to alphabetical arrangement of groups by gender then race for clarity
+data_summary <- data_summary %>%
+  arrange(by = gender, race) 
+
+# printing first two cross-tabs tables only as example (for brevity)
+print(data_summary$crosstabs[1:2])
+
+# printing out the t-test results for all groups
+data_summary %>%
+select(-data, -t_res, -crosstabs) %>%
+  kbl(digits = 3, 
+      col.names = c("Race", "Gender", "N Observations", 
+                    "Normal A1C", "Abnormal A1C", "Test Statistic", "P-value")) %>%
+  add_header_above(c(" " = 3, "Mean Days in Hospital" = 2, "T-test Results" = 2)) %>%
+  kable_styling()
+
+```
+
+# Problem 4
+
+## Functions
+
+First I wrote a function to plot the diagnostics of the linear models generated. 
+
+```{r}
+
+# function to look at linear model diagnostics plot ============================
+
+f_plot <- function(model, title){
+  
+p <- autoplot(model, label.size = 3, 
+         which = 1:4, ncol = 2,
+         colour = '#C6C6C6', 
+         smooth.colour = '#00A19C', 
+         title = title, 
+         ) + 
+  theme_bw() 
+
+plot <- gridExtra::grid.arrange(grobs = p@plots, top = title)
+
+return(plot)
+
+}
+
+
+```
+
+Then I wrote a function to compare linear models. The function allows you to either:
+
+- **compare linear models for many different dependent variables** with the same independent variable specification per model by setting
+- **compare multiple linear models different specifications of independent variables** and the same dependent variable per model by setting. For this option you can also specify if you want to look at:
+    - all possible combinations of listed independent variables by setting
+    - each independent variable on it's own
+    
+The original model specifications and detailed summary are preserved in the dataframe that is the result of running the function. A short summary of the models can be shown in a table using the dataframe, and diagnostic plots are also accessible in the data frame to be printed. 
+
+
+```{r}
+
+# Function to compare models ===================================================
+
+f_compare <- function(data, y, x, diff_outcomes = FALSE, type = "comb"){
+  
+# data: should be a data frame or tibble
+  
+# y: dependent variable(s) as character string. Should be length of 1 if comparing
+# different independent variable specifications, length > 1 if comparing different 
+# independent variable specifications
+  
+# x: independent variable(s) as character string. 
+  
+# diff_outcomes: TRUE if comparing same specifications for different dependent 
+# (outcome) variables, FALSE if comparing different independent variable 
+# specifications for same outcome. Defaults to FALSE.
+  
+# type: only needs to be specified when diff_outcomes = FALSE. This indicates 
+# whether you want to compared models with one independent variable per outcome 
+# (type = "single") from the input x, or if you want to look at all possible 
+# combinations of specifications without interaction from input x. 
+  
+  
+stopifnot(is.character(y))
+stopifnot(is.character(x))
+stopifnot(is.logical(diff_outcomes))
+
+# create empty model specifications list
+model_specs <- c()
+
+# if comparing models for different outcomes ----------------------------------
+
+if(diff_outcomes == TRUE) {
+  
+  stopifnot(length(y)>1)
+  
+  # collapse x var for proper formatting
+  if (length(x) > 1){
+  x <- paste(x, collapse = "+")
+  }
+  
+  # create a list of the model specifications based on input x and y list
+  for (out in y) {
+  model_specs <- c(model_specs, paste(out, "~", x))
+  }
+  
+}
+
+# if comparing models for same outcome -----------------------------------------
+  
+if (diff_outcomes == FALSE){
+  
+  stopifnot(length(y)==1)
+  stopifnot(length(x)>1)
+  
+  if (type == "comb"){
+  
+  # make list of all possible combinations of x var
+  x_list <- do.call("c", lapply(seq_along(x), function(i) combn(x, i, FUN = list)))
+  x_list  <- sapply(x_list[!sapply(x_list, purrr::is_empty)], paste, collapse = '+')
+  
+  }
+
+  if (type == "single") {
+  
+  x_list <- x
+    
+  }
+  
+  # create a list of the model specifications based on input x and y list
+  for (item in x_list) {
+  model_specs <- c(model_specs, paste(y, "~", item))
+  }
+  
+}
+
+# run the models ---------------------------------------------------------------   
+
+output <-
+  tibble(model_specs) %>% 
+  # run lm for each specified formula
+  mutate(model = map(model_specs, ~lm(formula = .x, data = data)),
+         glance = map(model, glance), 
+         summary = map(model, summary),
+         plot = map(model, ~f_plot(model = .x, title = model_specs))) %>%
+  unnest(glance)
+
+return(output)
+
+}
+
+```
+
+
+
+## Example scenario 1 
+Compare model results for 2 different outcomes. 
+
+Both examples for the function use the `polyps` datset from the `medicaldata` r package. This contains results from a RCT of Sulindac for Polyp Prevention in Familial Adenomatous Poly-posis. The variable **number3m** indicates the number of colonic polyps at 3 months, and **number12m** indicates the number of colonic polyps at 12 months. This is a very small dataset so used for example purposes only. 
+
+```{r}
+
+y <- c("number3m", "number12m")
+x <- c("baseline", "age")
+
+model_summary <- f_compare(data = medicaldata::polyps, y = y, x = x, diff_outcomes = TRUE)
+
+model_summary %>%
+select(model_specs, r.squared, adj.r.squared, sigma, statistic, p.value) %>%
+  kbl(digits = 6, 
+      col.names = c("Model", "R Squared", "Adj. R Squared", 
+                    "Sigma", "F-Statistic", "P-value")) %>%
+  kable_styling()
+
+
+```
+
+
+## Example scenario 2
+Compare model results for 1 outcome with different model specifications for predictors.
+
+```{r}
+
+y <- c("number3m")
+x <- c("baseline", "age", "treatment")
+model_summary <- f_compare(data = medicaldata::polyps, y = y, x = x, 
+                           diff_outcomes = FALSE, type = "comb")
+
+
+model_summary %>%
+select(model_specs, r.squared, adj.r.squared, sigma, statistic, p.value) %>%
+  kbl(digits = 6, 
+      col.names = c("Model", "R Squared", "Adj. R Squared", 
+                    "Sigma", "Statistic", "P-value")) %>%
+  kable_styling()
+
+
+```
+
