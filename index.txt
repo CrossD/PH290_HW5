@@ -16,4 +16,6 @@
 
 'hello_world.R' says a personalized hello. Created by Kaitlyn.
 
-`HW1_Maddy.Rmd` contains Maddy's work from homework 1 in this class. Created by Maddy. 
+`HW1_Maddy.Rmd` contains Maddy's work from homework 1 in this class. Created by Maddy.
+
+`hmwk4_shiny_avn.R` contains a Shiny App script for homework 4. Created by Andrew.
