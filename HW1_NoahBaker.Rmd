@@ -1,0 +1,162 @@
+---
+title: "PH290_HW1"
+output:
+  pdf_document: default
+  html_document: default
+date: '2022-09-12'
+---
+Noah Baker
+2022-09-13
+
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(testthat)
+library(purrr)
+```
+
+
+
+## 1. Write down two differences between the type and the class of an R object
+
+The type is the storage mode of an object while the class is an attribute of an object, in object-oriented programming, that names the classes the object inherits.
+
+Types cannot be changed unless changing the storage of the object while variable classes can be renamed.
+
+
+## 2. Create a function fp to calculate the pth absolute power of a vector of numbers
+
+```{r}
+fp <- function(x, p=2, deriv=FALSE){
+  if(deriv == TRUE){
+    if(p>1){
+      p*abs(x)**(p-1)*sign(x)
+    }
+    else{
+      sign(x)
+    }
+  }
+  else{
+    abs(x)**p
+  }
+}  
+```
+
+```{r}
+test_that("fp works", {
+  x <- 6
+  y <- -4
+  t.1 <- c(2, 3, 4)
+  t.2 <- 4
+  t.3 <- 1
+  t.4 <- 2
+  t.5 <- numeric(length=0)
+  expect_equal(fp(t.1), c(4, 9, 16))
+  expect_equal(fp(x, t.2), abs(x)**4)
+  expect_equal(fp(y, t.3), abs(y))
+  expect_equal(fp(x, t.4, deriv = TRUE), 2*x)
+  expect_equal(fp(y, t.3, deriv = TRUE), sign(y))
+  expect_equal(fp(t.5), numeric(length=0))
+})
+```
+
+
+## 3. Perform a subgroup analyses using a diabetes dataset
+
+```{r}
+# this reads in the diabetes dataset, selects the given columns, and reassigns
+# categorical variables to binary values of abnormal and normal, then cleans 
+# the data for all values missing
+
+diab = read.csv("data/dataset_diabetes/diabetic_data.csv") %>%
+  select(race, gender, A1Cresult, time_in_hospital) %>%
+  mutate(A1Cresult = case_when(
+    A1Cresult == ">7" | A1Cresult == ">8" ~ "Abnormal",
+    A1Cresult == "Norm" ~ "Normal",
+    TRUE ~ "None"
+  ))
+diab_slim = diab  %>% filter(.$A1Cresult != "None")
+```
+
+
+```{r}
+# this function creates a dataframe with rows grouped by gender and race. 
+# Subset within each group, a cross tabulation and t-test for normal vs abnormal
+# alcohol levels and time spent in the hospital
+
+subgroups <- diab_slim %>%
+  group_by(gender, race) %>%
+  tidyr::nest() %>%
+  mutate(
+    table <- map(data, function(dat){
+      xtabs(~A1Cresult + time_in_hospital, dat)
+    }),
+    ttest <- map(data, function(x){
+      t.test(time_in_hospital ~ A1Cresult, data = x)
+    })
+  )
+```
+
+```{r}
+# outputs of the results of subgroups' cross tabulation and statistical t-test 
+# values
+
+for(n in 1:3){
+  print(paste0(map(subgroups[[1]], head)[[n]]," ", map(subgroups[[2]], head)[[n]]))
+  print(map(subgroups[[4]], head)[[n]])
+  print(map(subgroups[[5]], head)[[n]])
+}
+```
+
+
+## 4. Design and write a utility function to compare linear regression models side-by-side.
+
+```{r}
+# these create the linear regression models to be compared
+mod1 <- lm(lifeExp ~ year, gapminder::gapminder)
+mod2 <- lm(lifeExp ~ year + gdpPercap, gapminder::gapminder)
+
+mods <- list(mod1, mod2)
+
+# function that takes in a list of linear models and prints their coefficients 
+# and produces graphical comparisons
+compare_mod <- function(mods) {
+  # prints the coefficients of the linear regresion models
+  coeff <- map(mods, function(m) {coefficients(m)})
+  # produces graphs for each of the mods linear regression models
+  graphs <- map(mods, function(m) {
+    # plots with a 2x2 grid
+    par(mfrow=c(2,2))
+    # plots the functions
+    plot(m)
+    })
+  return(c(coeff, graphs))
+}
+
+# visualization
+compare_mod(mods = mods)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

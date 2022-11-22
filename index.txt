@@ -19,3 +19,5 @@
 `HW1_Maddy.Rmd` contains Maddy's work from homework 1 in this class. Created by Maddy.
 
 `hmwk4_shiny_avn.R` contains a Shiny App script for homework 4. Created by Andrew.
+
+`HW1_NoahBaker.Rmd` contains the homework 1 submission. Created by Noah.
